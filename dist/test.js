@@ -1,8 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-function test() {
-    var nullable = null;
-    nullable = 'string';
-    return 'test';
-}
-exports.test = test;
+var sample_1 = require("./sample");
+var a = sample_1.sampleFunction();
+var b = sample_1.sampleText;
+var nullable = null;
+nullable = 'hoge';

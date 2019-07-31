@@ -1,5 +1,5 @@
-export function test() {
-    let nullable = null
-    nullable = 'string'
-    return 'test'
-}
+import { sampleText, sampleFunction } from './sample'
+const a = sampleFunction()
+const b = sampleText
+let nullable = null
+nullable = 'hoge'
