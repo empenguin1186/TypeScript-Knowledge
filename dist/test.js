@@ -1,7 +1,8 @@
 "use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-var sample_1 = require("./sample");
-var a = sample_1.sampleFunction();
-var b = sample_1.sampleText;
-var nullable = null;
-nullable = 'hoge';
+var hoge;
+var fuga;
+// 括弧を使って({}) を使って object 型を指定することもできるが、その場合プリミティブ型を代入してもエラーが発生しない
+hoge = true; // OK
+hoge = 0; // OK
+fuga = false; // Error
+fuga = 1; // Error

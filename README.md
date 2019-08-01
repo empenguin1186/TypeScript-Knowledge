@@ -228,5 +228,204 @@ tsc -b src/tsconfig.client.json
 
 継承のスコープとしてはトップレベルフィールド単位ではなく各フィールド単位となる。例えば継承元の tsconfig で `allowJs` が `true` になっていたら継承先の tsconfig で `allowJs`の値を書き換えない限り継承元の値である `true` が適用される
 
+# TypeScript の基礎
+
+## 意図しない NaN (Not-a-Number)を防ぐ
+JS はメソッドの引数の型チェックを行わないので意図しない型のデータが引数として渡され結果 NaN が返ってくる可能性があった。TS ではそれを防ぐためにメソッド宣言時に型を指定することができる
+
+## 基本の型
+
+### [Tips] let と var と const の違い
+| 修飾子 | 値の再代入 | スコープを分けることかできるか |
+|:------:|:------:|:------:|
+| var | 可能 | 不可能 |
+| let | 可能 | 可能 |
+| const | 不可能 | 可能 |
+
+```ts
+var a = 'a'
+let b = 'b'
+const c = 'c'
+
+// 変数のスコープを分けることはできるか
+if (a === 'a') {
+    var a = 'A'
+    let b = 'B'
+    const c = 'C'
+    console.log(a) // A
+    console.log(b) // B
+    console.log(c) // C
+}
+
+console.log(a) // A
+console.log(b) // b
+console.log(c) // c
+
+// 値の再代入はできるか
+a = 'AA'
+b = 'BB'
+console.log(a) // AA
+console.log(b) // BB
+// c = 'CC' [Error] Cannot assign to 'c' because it is a constant.
+```
+
+### number
+
+`number`型は 10, 16, 2, 8進数をサポート
+```ts
+let decimal: number = 255;
+let hex: number = 0xfff;
+let binary: number = 0b0000;
+let octal: number = 0o123;
+```
+
+### string
+
+バッククォートで囲むことで他の変数の値を使用できる
+```ts
+let color = "red";
+color = 'green';
+let myColor: string = `my hear is ${color}`
+console.log(myColor) // my hear is green
+```
+
+### array
+
+2つの記法がある
+```ts
+let array1: number[] = [1, 2, 3]
+let array2: Array<number> = [1, 2, 3]
+```
+
+### tuple
+
+変数のセットを表す。例えば、`number`と`string`の変数をセットに持ちたい場合は以下のように記述する
+```ts
+let hoge: [string, number];
+
+// 変数をセットする場合順番には気をつける
+hoge = ["string", 10]; // OK
+hoge = [10, "string"] // [Error] Type 'string' is not assignable to type 'number'.
+
+// 既知のインデックスにアクセスすると宣言時に指定された型で使用できる
+let fuga: string;
+fuga = hoge[0].substr(1); // OK
+fuga = hoge[1].substr(1); // [Error] Property 'substr' does not exist on type 'number'.
+```
+
+既知のインデックス以外にアクセスするとデータ型は宣言時に指定された全ての型(今回は number と string)を合わせたもの(Union Types)となる ... はずだが以下のコードをコンパイルしようとしたらエラーが発生した
+
+```ts
+let hoge: [string, number];
+
+// 変数をセットする場合順番には気をつける
+hoge = ["string", 10]; // OK
+hoge = [10, "string"] // [Error] Type 'string' is not assignable to type 'number'.
+hoge[3] = "aaaaaa";
+console.log(hoge[7].toString());
+// hoge[4] = true;
+```
+
+```shell
+tsc
+src/test.ts:14:1 - error TS2322: Type '"global"' is not assignable to type 'undefined'.
+
+14 hoge[3] = "global";
+   ~~~~~~~
+
+src/test.ts:14:6 - error TS2493: Tuple type '[string, number]' of length '2' has no element at index '3'.
+
+14 hoge[3] = "global";
+        ~
+
+src/test.ts:15:13 - error TS2532: Object is possibly 'undefined'.
+
+15 console.log(hoge[7].toString());
+               ~~~~~~~
+
+src/test.ts:15:18 - error TS2493: Tuple type '[string, number]' of length '2' has no element at index '7'.
+
+15 console.log(hoge[7].toString());
+                    ~
 
 
+Found 4 errors.
+
+╭ ─ ○  kodaira@MBP-15JAS-323(2019/08/01 08:56:09):~/Desktop/ts-knowledge (master)
+╰ ─ ○  tsc
+src/test.ts:14:1 - error TS2322: Type '"aaaaaa"' is not assignable to type 'undefined'.
+
+14 hoge[3] = "aaaaaa";
+   ~~~~~~~
+
+src/test.ts:14:6 - error TS2493: Tuple type '[string, number]' of length '2' has no element at index '3'.
+
+14 hoge[3] = "aaaaaa";
+        ~
+
+src/test.ts:15:13 - error TS2532: Object is possibly 'undefined'.
+
+15 console.log(hoge[7].toString());
+               ~~~~~~~
+
+src/test.ts:15:18 - error TS2493: Tuple type '[string, number]' of length '2' has no element at index '7'.
+
+15 console.log(hoge[7].toString());
+                    ~
+
+
+Found 4 errors.
+```
+
+### any
+データの型が不明な場合に使用できるが、TS の恩恵を受けられないのでできるかぎり使用しないのが望ましい
+
+```ts
+let hoge: any = 0;
+hoge = "fuga";
+hoge = false;
+```
+
+### unknown
+
+`any` と異なる点としては値の利用について厳密であり、`any` だとコンパイルが通るようなコード(ランタイムエラーは発生する)でも `unknown` で定義するとコンパイルエラーが発生する
+```ts
+const a: number[] = ['1'] // [Compile Error] Type 'string' is not assignable to type 'number'.
+const b: any[] = ['1'] // OK
+const c: unknown[] = ['1'] // OK
+
+a[0].toFixed(1) // OK 
+b[0].toFixed(1) // [Runtime Error] b[0].toFixed is not a function
+c[0].toFixed(1) // [Compile Error] Object is of type 'unknown'.
+```
+
+### void
+`void` が付与された変数は `undefined` か `null` しか代入することができない
+
+### null / undefined
+`null` と `undefined` は全ての型のサブタイプであり、あらゆる変数に代入することが可能である。
+しかし、tsconfig.json で `"strictNullChecks": true` を指定すると `null` および `undefined` は `void` もしくは `null` は null 型, undefined は undefined型 にしか代入することができなくなる 
+
+### never
+発生し得ないデータ型を表す. 戻り値を得られないメソッドを定義する場合はこの型を使用する
+```ts
+function throwError(msg: string): never {
+  throw new Error(msg);
+}
+```
+void と何が違うのか?
+
+### object
+非プリミティブ型を表す型。プリミティブ型は `number`, `string`, `boolean`, `symbol`, `null`, `undefined` の6つ
+
+```ts
+let hoge: {}
+let fuga: object
+
+// 括弧を使って({}) を使って object 型を指定することもできるが、その場合プリミティブ型を代入してもエラーが発生しない
+hoge = true // OK
+hoge = 0 // OK
+
+fuga = false // [Error] Type 'false' is not assignable to type 'object'.
+fuga = 1 // [Error] Type '1' is not assignable to type 'object'.
+```
