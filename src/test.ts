@@ -1,9 +1,7 @@
-let hoge: {}
-let fuga: object
+let hoge: any = "hello"
 
-// 括弧を使って({}) を使って object 型を指定することもできるが、その場合プリミティブ型を代入してもエラーが発生しない
-hoge = true // OK
-hoge = 0 // OK
+let fuga: number = (<string>hoge).length // <type>変数 でダウンキャスト可能
+let piyo: number = (hoge as string).length // 変数 as 型 でダウンキャスト可能 
 
-fuga = false // Error
-fuga = 1 // Error
+console.log(fuga)
+console.log(piyo)

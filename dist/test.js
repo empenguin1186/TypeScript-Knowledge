@@ -1,8 +1,6 @@
 "use strict";
-var hoge;
-var fuga;
-// 括弧を使って({}) を使って object 型を指定することもできるが、その場合プリミティブ型を代入してもエラーが発生しない
-hoge = true; // OK
-hoge = 0; // OK
-fuga = false; // Error
-fuga = 1; // Error
+var hoge = "hello";
+var fuga = hoge.length;
+var piyo = hoge.length;
+console.log(fuga);
+console.log(piyo);

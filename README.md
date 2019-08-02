@@ -414,6 +414,7 @@ function throwError(msg: string): never {
 }
 ```
 void と何が違うのか?
+https://qiita.com/uhyo/items/e2fdef2d3236b9bfe74a
 
 ### object
 非プリミティブ型を表す型。プリミティブ型は `number`, `string`, `boolean`, `symbol`, `null`, `undefined` の6つ
@@ -429,3 +430,136 @@ hoge = 0 // OK
 fuga = false // [Error] Type 'false' is not assignable to type 'object'.
 fuga = 1 // [Error] Type '1' is not assignable to type 'object'.
 ```
+
+## 高度な型
+
+### Insersection Types
+
+`&` で複数の Type を統合することができる
+```ts
+type Horse = {
+    tail: Tail
+    run: () => void
+}
+
+type Bird = {
+    wing: Wing
+    fly: () => void
+}
+
+type Pegasus = Horse & Bird
+```
+
+プリミティブ型も Intersection Types で統合することができるが、その時の型は全て `never` となる
+
+### Union Types
+
+複数の型のうちどれか1つであるということを示すために `Union Types` を使用する
+```ts
+let hoge: boolean | string
+let fuga: (number | string)[] // array型も可能
+let piyo: string | null // 応用して null 許容型も作成可能
+
+hoge = true // OK
+hoge = 'hello' // OK
+
+console.log(hoge)
+```
+
+### Literal Types
+
+ここでは `String Literal` を例に挙げる
+```ts
+let hoge: "ONE"
+
+hoge = "ONE" // OK
+hoge.toLowerCase() // String Literal Types は string のサブタイプであるのでメソッドを流用できる
+
+let fuga: "ONE" | "TWO" | "THREE" // 複数指定も可能
+fuga = "ONE"
+fuga = "THREE"
+```
+
+この他にも `Numeric Literal Types`, `Boolean Literal Types` が存在するが、使い方としては一緒
+
+## typeof, keyof
+
+### typeof
+
+定義済みの型を取得する時には`typeof`を使用する
+```ts
+let hoge: string = "a"
+let fuga: typeof hoge // 型推論のタイミングでのみ使用可
+fuga = "b"
+console.log(fuga)
+```
+
+### keyof
+
+プロパティの名称を取得するのに使用する
+```ts
+type Hoge = {
+    foo: string
+    bar: string
+    baz: string
+}
+
+let key: keyof Hoge // String Literal Types で定義可能
+key = "baz"
+
+const Fuga = {
+    0: 0,
+    1: 1
+}
+
+let keyNumber: keyof typeof Fuga // String Literal Types 以外で定義したい場合は typeof と併用する
+keyNumber = 1
+```
+
+### アサーションによるダウンキャスト
+
+ダウンキャストを行う場合は以下のように記述
+```ts
+let hoge: any = "hello"
+
+let fuga: number = (<string>hoge).length // <type>変数 でダウンキャスト可能
+let piyo: number = (hoge as string).length // 変数 as 型 でダウンキャスト可能 
+
+console.log(fuga)
+console.log(piyo)
+```
+
+### クラスについて
+すでに知っている内容だったので省略
+
+### Enum について
+すでに知っている内容だったので省略
+
+# 型推論
+
+## const/let の型推論
+
+ここで改めて var, let, const の違いについて触れておく
+
+| 修飾子 | 値の再代入 | スコープを分けることかできるか |
+|:------:|:------:|:------:|
+| var | 可能 | 不可能 |
+| let | 可能 | 可能 |
+| const | 不可能 | 可能 |
+
+let, var は値の再代入が可能であるので型推論の結果は最初に代入された値の型となる。しかし const は値の再代入が不可能なので、型推論の結果は Literal Types となる
+
+```ts
+let hoge = "string" // string 型
+var fuga = 1 // number 型
+const piyo = "hello" // "hello"型
+```
+
+## Widening Literal Types
+const で型推論された結果 Literal Types となったものは `Widening Literal Types` と呼ばれ、別の値から参照すると Literal Types ではなくなる
+
+```ts
+const hoge = "hello" // "hello" 型
+let fuga = hoge // string 型となる
+```
+したがって Literal Types を使い回す場合は厳格な型指定が必要である
