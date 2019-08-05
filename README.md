@@ -433,7 +433,7 @@ fuga = 1 // [Error] Type '1' is not assignable to type 'object'.
 
 ## 高度な型
 
-### Insersection Types
+### Intersection Types
 
 `&` で複数の Type を統合することができる
 ```ts
@@ -555,7 +555,7 @@ var fuga = 1 // number 型
 const piyo = "hello" // "hello"型
 ```
 
-## Widening Literal Types
+### Widening Literal Types
 const で型推論された結果 Literal Types となったものは `Widening Literal Types` と呼ばれ、別の値から参照すると Literal Types ではなくなる
 
 ```ts
@@ -563,3 +563,187 @@ const hoge = "hello" // "hello" 型
 let fuga = hoge // string 型となる
 ```
 したがって Literal Types を使い回す場合は厳格な型指定が必要である
+
+## Array / Tupple の型推論
+
+### Array の型推論
+
+Arrayに含める変数の型を固定したい場合は`as`を使用する
+
+```ts
+let hoge = [0 as 0, 1 as 1];
+
+hoge.push(0);
+// hoge.push(2); [Compile Error] Argument of type '2' is not assignable to parameter of type '0 | 1'.
+
+const fuga: 0 = 0
+const piyo: 1 = 1
+
+const array = [fuga, piyo]
+
+array.push(1)
+// array.push(2) [Compile Error] Argument of type '2' is not assignable to parameter of type '0 | 1'.
+```
+
+Array型の型推論で各インデックスの型が`string`であった場合には以下のような関数を使用することができる
+```ts
+let hoge = ["foo", "bar", "baz"]
+
+let fuga = hoge.map(item => item.toUpperCase())
+console.log(fuga)
+
+let piyo = hoge.reduce((prev, next) => `${prev} ${next}`)
+console.log(piyo)
+```
+
+### Tuppleの型推論
+
+```ts
+let hoge = [false, 1] as [boolean, number]
+let fuga = [1, true, 'foo'] as [number, boolean, string]
+
+const v1 = fuga[0]
+const v2 = fuga[1]
+// 範囲外の要素は参照できず CE となる
+// const v3 = fuga[3] Compile Error] Tuple type '[number, boolean, string]' of length '3' has no element at index '3'.
+
+// 要素の追加は可能 (型は最初に定義されたものに限定される。fugaは(number | boolean | string)のUnionTypesしか追加できない)
+fuga.push(1)
+fuga.push('bar')
+// fuga.push([1,2]) [Compile Error] Argument of type 'number[]' is not assignable to parameter of type 'string | number | boolean'.
+// Type 'number[]' is not assignable to type 'string'.
+```
+
+## Objectの型推論
+省略
+
+## 関数の返り値の推論
+
+関数の返り値についても型推論が可能
+```ts
+// 型推論使用
+function hoge(value1: number, value2: number) {
+    return `${value1 * value2}`
+}
+
+// 関数定義の際に返り値の型も定義
+function fuga(value1: number, value2: number): string {
+    return `${value1 * value2}`
+}
+
+console.log(hoge(3,2))
+console.log(fuga(3,2))
+```
+
+返り値の型が複数存在する場合は`Union Types` が使用される
+```ts
+// (number | null) 型が推論される
+function checkNull(value: number) {
+    if (value < 0 || value > 100) return null
+    return value
+}
+
+// 特定の値しか返さない関数に関しては Literal Union Types が推論される
+function retrunResponse(value: ("A" | "B" | "C")) {
+    switch(value) {
+        case "A":
+            return "Yes"
+        case "B":
+            return "No"
+        default:
+            return "So, So"
+    }
+}
+```
+
+型定義ファイルの出力は以下の通り
+```ts
+declare function checkNull(value: number): number | null;
+declare function retrunResponse(value: ("A" | "B" | "C")): "Yes" | "No" | "So, So";
+```
+
+## Promise の型定義 (要復習)
+
+非同期処理を行う `Promise`に関しては何も設定していないと型定義は`Promise<unknown>`となるが、関数宣言時に厳密な型定義が可能である
+```ts
+
+// 例１
+function setTimer(time: number): Promise<string> {
+    return new Promise(resolve => {
+        setTimeout(()=> resolve(`${time}ms taken`), time)
+    })
+}
+
+/*　例2
+function setTimer(time: number): Promise<string> {
+    return new Promise<string>(resolve => {
+        setTimeout(()=> resolve(`${time}ms taken`), time)
+    })
+}
+*/
+
+function hoge(value: number): void {
+    console.log("hoge")
+}
+
+// await で使用した場合も型定義が受け継がれる
+async function fuga() {
+    const foo = await setTimer(1000)
+    return foo
+}
+
+setTimer(1000).then(console.log)
+// setTimer(1000).then(res => hoge(res)) [Comile Error] Argument of type 'string' is not assignable to parameter of type 'number'.
+fuga()
+```
+
+型定義ファイル
+```ts
+declare function setTimer(time: number): Promise<string>;
+declare function hoge(value: number): void;
+declare function fuga(): Promise<string>;
+```
+
+※ Promise関数の概要について学ぶ
+※ await async について学ぶ
+
+## import 構文の型推論
+`import`　については`import`先のファイルで再度型推論が行われる。
+
+※ dynamic import について調べる
+
+## JSON の型推論
+
+TSではJSONファイルを外部モジュールとしてインポートし、定義内容を型推論することが可能。この機能を有効にするには`tsconfig.json`の以下のフィールドを`true`にする
+
+```JSON
+...
+"compilerOptions": {
+  ...
+  "esModuleInterop": true,
+  "resolveJsonModule": true,
+  ...
+}
+```
+
+JSONファイルの内容を型推論する方法は以下の通り
+user.json
+```JSON
+{
+    "user_name": "hoge",
+    "age": 24,
+    "array": [
+        "foo",
+        "bar",
+        "baz"
+    ],
+    "isMale": true
+}
+```
+
+```ts
+import UserJson from './user.json'
+type Hoge = typeof UserJson
+```
+
+

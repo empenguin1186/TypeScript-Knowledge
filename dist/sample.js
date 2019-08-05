@@ -1,7 +1,8 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.sampleText = 'sampleText';
-function sampleFunction() {
+exports.foo = 10;
+exports.bar = 'label';
+function hoge() {
     return true;
 }
-exports.sampleFunction = sampleFunction;
+exports.hoge = hoge;

@@ -1,0 +1,10 @@
+{
+    "user_name": "hoge",
+    "age": 24,
+    "array": [
+        "foo",
+        "bar",
+        "baz"
+    ],
+    "isMale": true
+}
