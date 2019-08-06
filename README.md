@@ -704,13 +704,61 @@ declare function hoge(value: number): void;
 declare function fuga(): Promise<string>;
 ```
 
-※ Promise関数の概要について学ぶ
-※ await async について学ぶ
+### [Todo] Promise関数の概要について学ぶ
+
+### [Tips] await/async
+`async`はJSで非同期処理を行う機能であり、`await`は`async`関数内で使用する、一部の処理が終わるまで以降の処理を行わないようにするための機能である。  
+[async/await 入門（JavaScript） - Qiita](https://qiita.com/soarflat/items/1a9613e023200bbebcb3)  
+[JavaScriptは如何にしてAsync/Awaitを獲得したのか Qiita版 - Qiita](https://web.archive.org/web/20170905115052/http://qiita.com/gaogao_9/items/5417d01b4641357900c7)  
+
+```ts
+function hoge<T>(value: T): Promise<T> {
+    return new Promise(resolve => {
+        setTimeout(() => {
+            resolve(value);
+        }, 1000);
+    })
+}
+
+async function fuga(): Promise<string> {
+    return `${await hoge("foo")}  ${await hoge("bar")}  ${await hoge("baz")}`
+}
+
+async function piyo(): Promise<number> {
+    return await hoge(10) * await hoge(20) + await hoge(5)
+}
+
+fuga().then(console.log)
+piyo().then(console.log)
+```
+
+実行結果
+```shell
+205
+foo  bar  baz
+```
 
 ## import 構文の型推論
 `import`　については`import`先のファイルで再度型推論が行われる。
 
-※ dynamic import について調べる
+## dynamic import
+`dynamic import` とは JS で使用できるモジュールを関数のように読み込める機能のことである。従来の`import` はコードのトップレベルでしか使用できなかったが、`dynamic import`は任意のタイミングで`import`が可能である。これにより、FEでは必要なモジュールのみを読み込んでおき、必要に応じて追加のモジュールを読み込むことが可能となり、ページの初期表示時の処理負荷を軽減できる。  
+
+実装例
+```ts
+import('./sample').then(module => {
+    const user = new module.User("Tom")
+    user.hoge()
+})
+
+// オブジェクト単位のインポートも可能
+import('./sample').then(( {User} ) => {
+    const user = new User("Bob")
+    user.hoge()
+})
+```
+
+【参考文献】：[Chrome、Safari、Firefoxで使えるJavaScriptのdynamic import（動的読み込み） - Qiita](https://qiita.com/tonkotsuboy_com/items/f672de5fdd402be6f065)
 
 ## JSON の型推論
 
@@ -746,4 +794,59 @@ import UserJson from './user.json'
 type Hoge = typeof UserJson
 ```
 
+# TypeScript の型安全
 
+## 制約による型安全 
+
+### Nullable 型
+
+関数の引数にnullが代入されることを許容する場合は以下のように記述することで、事前にエラーを検知できる
+```ts
+function getFormattedValue(value: number|null): string {
+    if (value === null) return '---pt'
+    return `${value.toFixed(1)} pt` // 上のif文によりvalueがnullである可能性は0であるため、CEは発生しない
+}
+console.log(getFormattedValue(null))
+```
+
+### Optional型
+知っているので省略  
+関数の引数の付与を任意にできる機能。これを使用すると自動的に`undefined`とのUnionTypesとなる
+
+### デフォルト値
+知っているので省略  
+関数の引数にデフォルト値をつけることができる。デフォルト値を設定している引数はOptionalにしている場合は`undefined`は付与されない
+
+### オブジェクトの型安全
+省略
+
+### 読み込み専用プロパティ
+
+3種類の方法によってクラスのプロパティを読み込み専用にすることが可能
+```ts
+type User = {
+    readonly age: number
+    name: string
+}
+
+const hoge: User = {
+    age: 24,
+    name: "Taro"
+}
+
+// インスタンスの全てのプロパティを read-only にする
+const fuga: Readonly<User> = {
+    age: 32,
+    name: "Bob"
+}
+
+console.log(hoge.age)
+// hoge.age = 24 [CE] Cannot assign to 'age' because it is a read-only property.
+
+// fuga.name = "Alice" [CE] Cannot assign to 'age' because it is a read-only property.
+
+// Object.freeze による read-only 処理
+const piyo = Object.freeze(hoge)
+// piyo.age = 34
+// piyo.name = "Tom"
+```

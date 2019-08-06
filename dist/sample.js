@@ -1,8 +1,12 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.foo = 10;
-exports.bar = 'label';
-function hoge() {
-    return true;
+class User {
+    constructor(name) {
+        this.name = name;
+        this.name = name;
+    }
+    hoge() {
+        console.log("Hello, I am " + this.name);
+    }
 }
-exports.hoge = hoge;
+exports.User = User;
