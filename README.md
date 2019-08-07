@@ -1092,6 +1092,12 @@ const v1 = getType({"name": "aaa", "age": 23, "hoge": "aaaa"})
 const v2 = getType({"name": "aaa", "age": 23, "fuga": "bbbb"})
 ```
 
+実行結果
+```shell
+aaaa
+bbbb
+```
+
 ### Array.filter で型を絞り込む
 
 Arrayオブジェクトの`filter`関数で要素の絞り込みを行う際に、要素の型も絞り込みを行う場合は以下のように記述する
@@ -1117,6 +1123,7 @@ const res2 = arr.filter(
 )
 ```
 
+型定義ファイル
 ```ts
 declare const arr: (Hoge | Fuga)[];
 declare const res1: (Hoge | Fuga)[];
