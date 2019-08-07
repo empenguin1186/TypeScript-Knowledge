@@ -850,3 +850,275 @@ const piyo = Object.freeze(hoge)
 // piyo.age = 34
 // piyo.name = "Tom"
 ```
+
+## 抽象度による型安全
+
+### アップキャスト・ダウンキャスト
+
+ダウンキャスト(抽象型 -> 詳細型)したい場合はアサーションを使用する
+```ts
+const hoge = {
+    foo: "aaaa" as "aaaa"
+    bar: "bbbb" as "bbbb"
+}
+```
+
+アップキャスト(詳細型 -> 抽象型)を使用する場合は型推論に頼った方がいい場合もある
+
+### オブジェクトに新しいプロパティを追加する
+
+あるオブジェクトに対して動的にプロパティを追加したい場合は**インデックスシグネチャ**を使用する
+```ts
+type Hoge = {
+    foo: string
+    [key: string]: number|string // インデックスシグネチャ
+}
+
+const fuga: Hoge = {
+    foo: "Bob",
+    bar: 24
+}
+```
+この時注意したいのがインデックスシグネチャの型はトップレベルプロパティと互換性を持っていなければならない。
+
+```ts
+type Literal = 'one' | 'two' | 'few' | 'entirely'
+
+type Hoge = {
+    foo: string
+    bar: { [k: string]: Literal | undefined }
+}
+
+const foo: Hoge = {
+    foo: "aaa",
+    bar: {
+        aaa: "one",
+        bbb: 'two'
+    }
+}
+
+const x = foo.bar['aaa']
+const y = foo.bar['ccc']
+```
+インデックスシグネチャの型をundefinedとのUnionTypesとすることで存在しないプロパティにアクセスした場合でもコンパイル時にundefined型が推論される  
+
+また、プロパティ名も String Literal を使用して制限することが可能
+```ts
+type Property = "p1" | "p2" | "p3"
+type Value =  'one' | 'two' | 'few' | 'entirely'
+
+type Hoge = {
+    foo: string
+    bar: { [K in Property]? : Value } 
+}
+
+const foo: Hoge = {
+    foo: "aaa",
+    bar: {
+        p1: "one",
+        p2: "two"
+    }
+}
+
+const x = foo.bar['p1']
+```
+
+ただしこの機能は`tsconfig.json`の以下のフィールドを`true`にしておく必要がある
+```JSON
+"compilerOptions": {
+    "strict": true, 
+    "noImplicitAny": true, 
+}
+```
+
+インスタンスのメンバを関数のみやPromiseのみ制限することも可能
+```ts
+interface Fs {
+    [k: string]: Function
+}
+
+const hoge: Fs = {
+    foo: () => "foo",
+    bar: async () => {}
+}
+
+interface Promises {
+    [k: string]: () => Promise<any>
+}
+
+const fuga: Promises = {
+    foo: async () => {}
+}
+``` 
+
+### const assertion
+
+const によってアサーションの部分を簡略化できる
+```ts
+// 省略しない記法
+const tuple1 = [true, "foo"] as [true, "foo"]
+
+// 省略された記法
+const tuple1 = [true, "foo"] as const
+```
+
+### Widening Literal Types 抑止
+
+`as const`を使用すると**Widening Literal Typesを無効化**することが可能
+
+```ts
+const hoge = "A" as const
+let fuga = hoge // declare let fuga: "A";
+
+function piyo() {
+    return "piyo" as const
+}
+
+function hogehoge() {
+    return "hogehoge"
+}
+
+let foo = piyo() // declare let foo: "piyo";
+let bar = hogehoge() // declare let bar: string;
+```
+
+### 危険な型の付与
+
+戻り値の型を緩いものにしてしまうと予期しないバグが発生する可能性があるので、その場合は型推論に任せた方が良い。以下の例は実行時例外が発生するケースである
+
+```ts
+function hoge(): any {
+    console.log("hoge")
+}
+
+let message: string = hoge()
+console.log(message.toLowerCase()) // TypeError: Cannot read property 'toLowerCase' of undefined
+```
+
+これは関数の戻り値が`any`としていたために発生した事象である。したがって適切な型を指定するか、TSの型推論に任せるかすることでコンパイル時にエラーに気づくことができる
+
+```ts
+function hoge() {
+    console.log("hoge")
+}
+
+let message: string = hoge() // Type 'void' is not assignable to type 'string'.ts(2322)
+
+console.log(message.toLowerCase())
+```
+
+### Non-null assertion
+
+`!`修飾子を使用することで変数の`null`や`undefined`である可能性を排除することができるが、当然実行時例外が投げられることがある。
+```ts
+function hoge(name?: string) {
+    console.log(`Hello ${name!.toUpperCase()}`)
+}
+hoge() // TypeError: Cannot read property 'toUpperCase' of undefined
+```
+
+### double assertion
+
+number -> any -> string とキャストを行うことであたかも number 型の変数で string 型で定義されているメソッドを使用できるかに思えるが、当然実行時例外が発生する
+```ts
+const hoge = 0 as any as string
+console.log(hoge.toUpperCase())
+```
+
+## 絞り込みによる型安全
+
+### typeof type guards
+省略
+
+### in type guards
+
+```ts
+type Hoge = {
+    "name": string
+    "age": number
+}
+
+let foo: Hoge = {
+    "name": "aaaa",
+    "age": 23
+}
+
+if ("name" in foo) {
+    console.log("name field exists")
+}
+```
+
+### instanceof type guards
+省略
+
+### タグ付き Union Types
+省略
+
+### ユーザ定義 type guards
+
+関数の引数の型を呼ばれた後に変更することができる機能。以下の例では`isHoge`の関数が呼ばれた後に引数の型は`Hoge`となり、`isFuga`が呼ばれた後に引数の型は`Fuga`となる
+```ts
+type Default = {
+    "name": string
+    "age": number
+    [k: string]: any
+}
+
+type Hoge = Default & {"hoge": string}
+type Fuga = Default & {"fuga": string}
+
+function isHoge(value: Hoge | Fuga): value is Hoge {
+    return value.hoge !== undefined
+}
+
+function isFuga(value: Hoge | Fuga): value is Fuga {
+    return value.fuga !== undefined
+}
+
+function getType(value: any) {
+    if (isHoge(value)) {
+        console.log(value.hoge)
+        return value
+    } else if (isFuga(value)) {
+        console.log(value.fuga)
+        return value
+    } else {
+        console.log("Others")
+        return value
+    }
+}
+
+const v1 = getType({"name": "aaa", "age": 23, "hoge": "aaaa"})
+const v2 = getType({"name": "aaa", "age": 23, "fuga": "bbbb"})
+```
+
+### Array.filter で型を絞り込む
+
+Arrayオブジェクトの`filter`関数で要素の絞り込みを行う際に、要素の型も絞り込みを行う場合は以下のように記述する
+
+```ts
+type Default = {
+    "name": string
+    "age": number
+    [k: string]: any
+}
+
+type Hoge = Default & {"hoge": string}
+type Fuga = Default & {"fuga": string}
+
+const arr: (Hoge | Fuga)[] = [
+    {"name": "aaa", "age": 23, "hoge": "aaaa"},
+    {"name": "aaa", "age": 23, "fuga": "bbbb"}
+]
+
+const res1 = arr.filter(e => "hoge" in e)
+const res2 = arr.filter(
+    (e: Hoge|Fuga): e is Hoge => "hoge" in e
+)
+```
+
+```ts
+declare const arr: (Hoge | Fuga)[];
+declare const res1: (Hoge | Fuga)[];
+declare const res2: Hoge[];
+```

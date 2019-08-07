@@ -1,27 +1,18 @@
-type User = {
-    readonly age: number
-    name: string
+type Default = {
+    "name": string
+    "age": number
+    [k: string]: any
 }
 
-const hoge: User = {
-    age: 24,
-    name: "Taro"
-}
+type Hoge = Default & {"hoge": string}
+type Fuga = Default & {"fuga": string}
 
-// インスタンスの全てのプロパティを read-only にする
-const fuga: Readonly<User> = {
-    age: 32,
-    name: "Bob"
-}
+const arr: (Hoge | Fuga)[] = [
+    {"name": "aaa", "age": 23, "hoge": "aaaa"},
+    {"name": "aaa", "age": 23, "fuga": "bbbb"}
+]
 
-console.log(hoge.age)
-// hoge.age = 24 [CE] Cannot assign to 'age' because it is a read-only property.
-
-// fuga.name = "Alice" [CE] Cannot assign to 'age' because it is a read-only property.
-
-// Object.freeze による read-only 処理
-const piyo = Object.freeze(hoge)
-// piyo.age = 34
-// piyo.name = "Tom"
-
-
+const res1 = arr.filter(e => "hoge" in e)
+const res2 = arr.filter(
+    (e: Hoge|Fuga): e is Hoge => "hoge" in e
+)
