@@ -1129,3 +1129,396 @@ declare const arr: (Hoge | Fuga)[];
 declare const res1: (Hoge | Fuga)[];
 declare const res2: Hoge[];
 ```
+
+# TypeScript の型システム
+
+## 型の互換性
+
+### 互換性の基礎
+
+#### 互換性のあるデータ
+サブタイプの型にスーパータイプのデータを代入することができない。たとえ互換性が存在する2つの型があったとしても、抽象度の高い型のデータを抽象度の低い型のデータに代入は不可能である。(例: string型のデータの String Literal Types への代入)  
+
+#### any 型について
+any 型にはどんなデータも代入できるので予期しない箇所で実行時例外が発生する
+
+#### unknown 型について
+unknown 型に入れられるデータも基本的にはany と同じでなんでも入れられるが、unknown 型のデータを別のデータに代入することはできない。
+
+```ts
+let a1: unknown = false
+let a2: string = a1 // [Compile Error] Type 'unknown' is not assignable to type 'string'.
+let a3: string = a1 as string // アサーションを使用するとコンパイルは通る
+```
+
+#### 互換性のないアサーション
+互換性のないアサーションを行なった場合は CE が発生する。しかし、`{}`によるアサーションを行うとどんなデータでも代入することができる
+
+```ts
+let hoge = "var" as {}
+```
+
+### {} 型の互換性
+プリミティブ型は{}型のサブタイプと言える?  
+
+
+```ts
+let hoge = {foo: "aaa"}
+let fuga = {foo: 1}
+
+// プロパティが異なるデータ型である場合、代入に失敗する
+hoge = fuga // [Compile Error] '{ foo: number; }' is not assignable to type '{ foo: string; }'. Types of property 'foo' are incompatible.
+
+// 異なるフィールドをもつ変数への代入は失敗する
+let piyo = {var: "ccc"}
+hoge = piyo  // [Compile Error] Property 'foo' is missing in type '{ var: string; }' but required in type '{ foo: string; }'.
+
+// フィールドが追加されている変数の代入は成功するが、逆は失敗する
+let hogehoge = {foo: "ddd", var: "eee"}
+hoge = hogehoge
+hogehoge = hoge // [Compile Error] Property 'var' is missing in type '{ foo: string; }' but required in type '{ foo: string; var: string; }'.
+
+let piyopiyo = {}
+
+piyopiyo = hogehoge
+```
+
+### 関数型の互換性
+
+引数名は関係なく、どちらかの関数の引数がもう片方の関数の引数を部分的に満たしているか否かで互換性があるかどうかが決定される。
+```ts
+let hoge = (a: string) => "foo"
+let fuga = (b: string, c: number) => "bar"
+
+fuga = hoge // 引数が多い関数から少ない関数への代入は可能
+hoge = fuga // [Compile Error] Type '(b: string, c: number) => string' is not assignable to type '(a: string) => string'.
+```
+
+### クラスの互換性
+
+互換性があるかどうかのチェックはインスタンスメンバに対してのみ行われる。静的メンバとコンストラクはチェックの対象外。
+```ts
+class Class1 {
+    static baz: boolean = false
+    foo: string
+    constructor(foo: string) {
+        this.foo = foo
+    }
+}
+
+class Class2 {
+    foo: string
+    bar: number
+    constructor(foo: string, bar: number) {
+        this.foo = foo
+        this.bar = bar
+    }
+
+    get(foo: string){}
+}
+
+let hoge = new Class1("aaa")
+let fuga = new Class2("bbb", 4)
+hoge = fuga
+console.log(hoge.foo)
+```
+
+## 宣言の結合
+TS には宣言方法や種別によって振り分けられる以下の3つのグループが存在しており、それらを総称して*宣言空間*と呼ぶ。  
+- Value
+- Type
+- Namespace
+
+### Value
+変数や関数の型が Value に該当する。変数や関数間で名前に重複が存在した場合、CE となる
+
+```ts
+let hoge = "foo"
+let hoge = (a: string) => "fuga" // [Compile Error] Cannot redeclare block-scoped variable 'hoge'.ts(2451)
+```
+
+### Type
+
+interface や type alias を宣言する場合はこのグループに属する。interface は追記による拡張が可能であるが、type alias は不可能
+```ts
+interface Hoge {
+    foo: string
+}
+
+interface Hoge {
+    bar: string
+}
+
+type Fuga = {
+    foo: string
+}
+
+type Fuga = { // Duplicate identifier 'Fuga'.ts(2300)
+    bar: string
+}
+```
+
+### Namespace
+
+Namespaceはドットで繋げて値を宣言することが可能
+```ts
+interface Hoge {
+    foo: string
+}
+namespace Hoge {
+    export interface Fuga {
+        foo: string
+    }
+}
+
+const hoge: Hoge = {
+    foo: "aaaa"
+}
+
+const fuga: Hoge.Fuga = {
+    foo: "bbb"
+}
+```
+
+### interfaceの結合
+
+以下のように同じメンバ名で異なるデータ型は結合不可能
+```ts
+interface Hoge {
+    foo: string
+}
+
+interface Hoge {
+    foo: number
+}
+```
+また、メソッドに関しては同じメソッド名でも引数が異なるデータ型である場合はオーバーロードが行われる
+
+### namespaceの結合
+結合時に export されていない宣言は参照できない
+
+```ts
+namespace Hoge {
+    interface A {
+        foo: "one" | "two"
+    }
+    export interface Fuga {
+        bar: string
+        baz: A
+    }
+}
+
+namespace Hoge {
+    export interface Piyo extends Fuga {
+        bar: "aaa"
+        baz: A // [Compile Error] Property 'baz' of exported interface has or is using private name 'A'.ts(4033)
+    }
+}
+
+// 結合によるメンバー追加は可能
+namespace Hoge {
+    export interface Fuga {
+        barbar: "aaaaa"
+    }
+    export interface Hogehoge extends Fuga {
+        bar: "bbb"
+    }
+}
+```
+
+# TypeScript の高度な型
+
+## Generics
+
+### 変数の Generics
+基本的な使い方は以下の通り
+```ts
+interface Hoge<T> {
+    foo: T
+}
+
+const v1: Hoge<string>  = {
+    foo: "aaa"
+}
+
+const v2: Hoge<number> = {
+    foo: 1
+}
+
+// デフォルトで使用する型を設定することが可能
+interface Fuga<T = string>　{
+    bar: T
+}
+
+const v3: Fuga = {
+    bar: "bbb"
+}
+
+// extends で制限をかけることが可能
+interface Piyo<T extends string> {
+    baz: T
+}
+
+const v4: Piyo<string> = {
+    baz: "ccc"
+}
+
+const v5: Piyo<number> = { // [Compile Error] Type 'number' does not satisfy the constraint 'string'.ts(2344)
+    baz: 1
+}
+```
+
+### 関数の Generics
+
+```ts
+function hoge<T>(input: T): T {
+    return input
+}
+
+// 関数の Generics に関しては関数使用時に<>で型を宣言しなくてもよい
+const v1 = hoge("foo")
+const v2 = hoge(2)
+const v3 = hoge(true)
+const v4 = hoge(null)
+
+// アサーションによる明示的な型の指定
+const v5 = hoge(true as boolean | null)
+const v6 = hoge<string | null>(null)
+
+const fuga = <T>(input: T) => ({ result: input })
+const v7 = fuga(1)
+
+// extends による制約
+interface Hoge {
+    foo: number
+}
+
+function func<T extends Hoge>(input: T) {
+    return { result: input.foo.toFixed() }
+}
+
+const v8 = func({ foo: 1 })
+const v9 = func({ foo: 1, bar: "aaa"})
+const v10 = func({ bar: "bbb"}) // [Compile Error] Argument of type '{ bar: string; }' is not assignable to parameter of type 'Hoge'.
+```
+
+### 複数の Generics
+
+```ts
+// 複数の Generics
+function hoge<T, K extends keyof T>(input: T, prop: K) {
+    return input[prop]
+}
+
+const input = {
+    foo: "one",
+    bar: false,
+    baz: 2
+}
+
+const v1 = hoge(input, "foo")
+const v2 = hoge(input, "aaa") // [Compile Error] Argument of type '"aaa"' is not assignable to parameter of type '"foo" | "bar" | "baz"'.ts(2345)
+```
+
+### クラスの Generics
+
+```ts
+// プリミティブ型の Genericsを使用する場合
+class Hoge<T extends string> {
+    name: T
+    constructor(name: T) {
+        this.name = name
+    }
+}
+
+const v1 = new Hoge("foo")
+
+// オブジェクトの Genericsを使用する場合
+interface Fuga {
+    foo: string,
+    bar: number,
+    baz: boolean
+}
+
+class Piyo<T extends Fuga> {
+    foo: T['foo']
+    bar: T['bar']
+    baz: T['baz']
+
+    constructor(val: T) {
+        this.foo = val.foo
+        this.bar = val.bar
+        this.baz = val.baz
+    }
+}
+
+const v2 = new Piyo({
+    foo: "aaa",
+    bar: 1,
+    baz: false
+})
+```
+
+## Conditional Types
+
+### 型の条件分岐
+
+三項演算子を使用することで型推論のタイミングで任意の型を返却することができる。
+
+```ts
+type Hoge<T> = T extends string ? true : false
+
+let foo: Hoge<string>
+let bar: Hoge<1>
+
+foo = true
+bar = false
+foo = false // Type 'true' is not assignable to type 'false'.ts(2322)
+bar = true // Type 'true' is not assignable to type 'false'.ts(2322)
+```
+
+Mapped Types　(複数のジェネリクス) でも使用することが可能
+```ts
+interface Hoge {
+    foo: string
+    bar: number
+    baz: boolean
+}
+
+type Fuga<T, U> = {
+    [K in keyof T]: T[K] extends U ? true : false
+}
+
+type a = Fuga<Hoge, string>
+type b = Fuga<Hoge, number>
+type c = Fuga<Hoge, boolean>
+
+let d: a = {
+    foo: false, // Type 'false' is not assignable to type 'true'.ts(2322)
+    bar: false,
+    baz: false
+}
+```
+
+### 条件に適合した型を抽出する
+
+よくわからなかった。
+```ts
+interface Hoge {
+    foo: string
+    bar: number
+    baz: () => string
+    foofoo: () => Promise<number>
+}
+
+type Fuga<T, U> = {
+    [K in keyof T]: T[K] extends U ? K : never
+}[keyof T]
+
+type Piyo = Pick<Hoge, Fuga<Hoge, string>>
+type HogeHoge = Pick<Hoge, Fuga<Hoge, number>>
+type FugaFuga = Pick<Hoge, Fuga<Hoge, Function>>
+type PiyoPiyo = Pick<Hoge, Fuga<Hoge, Promise<any>>>
+```
+
+### 条件分岐で得られる制約
